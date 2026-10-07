@@ -63,15 +63,30 @@ text instead.
 
 ## Deployment note
 
-`/api/brief` has no authentication and no rate limiting, and every request spends the model API
-key set in `.env`. This project is meant to run locally or on a private network. Do not expose
-an instance publicly with a real key until rate limiting is added; it is tracked as an issue
-in [`ISSUES_BACKLOG.md`](ISSUES_BACKLOG.md).
+`/api/brief` spends the model API key set in `.env` on every request, so it is rate limited: by
+default 10 requests per minute per client address, then HTTP 429 with a `Retry-After` header and a
+readable message. Tune it with `BRIEF_RATE_LIMIT_REQUESTS` and `BRIEF_RATE_LIMIT_WINDOW_SECONDS`.
+
+**What is protected:** `POST /api/brief`, per client address, in the process that serves it.
+**What is not:** there is still no authentication, no per-user or per-key budget, and no limit on
+`GET /api/sources/stellar-core` (GitHub's own unauthenticated limit applies there). The counter
+lives in memory, so a restart clears it and each instance or serverless isolate keeps its own
+budget — two replicas allow 20 requests a minute. The address comes from `X-Forwarded-For`, which
+is only trustworthy if the proxy in front of the app *sets* that header itself, to the peer address
+it actually saw — for Nginx, `proxy_set_header X-Forwarded-For $remote_addr;` (not `$http_x_forwarded_for`,
+which passes a client-supplied value through). Vercel and Railway set it for you. Behind a proxy
+that forwards a client-supplied value, a caller can rotate addresses and get a fresh window; with
+no proxy header at all, every client shares one bucket.
+
+Run it locally or on a private network. Public exposure means putting authentication in front, as
+well as the rate limiter — see the limiter's trade-offs in
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## How it works
 
 - `src/brief/schema.ts` — the `Claim` primitive and the full brief schema (zod).
 - `src/brief/grounding.ts` — the actual quote/date verification logic.
+- `src/api/rate-limit.ts` — the fixed-window, per-address limiter `/api/brief` runs first.
 - `src/brief/generate.ts` — provider-agnostic prompt construction and orchestration, using a
   JSON Schema generated directly from the zod schema (so the model's contract and the
   validation schema can never drift apart).

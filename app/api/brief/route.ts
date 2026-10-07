@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { clientKey, getBriefLimiter, rateLimitMessage } from '@/src/api/rate-limit';
 import { generateBrief } from '@/src/brief/generate';
 import { resolveGenerator } from '@/src/brief/providers/resolve';
 
@@ -13,6 +14,24 @@ const RequestSchema = z.object({
 // Next.js 16's Route Handler behavior for a POST (POST responses are never cached, unlike
 // GET, per node_modules/next/dist/docs/01-app/01-getting-started/15-route-handlers.md).
 export async function POST(request: Request) {
+  // Before anything that reads the body or spends the API key: every request that reaches this
+  // function has already cost the process something, so the window is consumed even when the
+  // request then fails for another reason.
+  const decision = getBriefLimiter().check(clientKey(request));
+  if (!decision.allowed) {
+    return NextResponse.json(
+      { error: rateLimitMessage(decision) },
+      {
+        status: 429,
+        headers: {
+          'Retry-After': String(decision.retryAfterSeconds),
+          'X-RateLimit-Limit': String(decision.limit),
+          'X-RateLimit-Remaining': String(decision.remaining),
+        },
+      }
+    );
+  }
+
   const generator = resolveGenerator();
   if (!generator) {
     return NextResponse.json(
