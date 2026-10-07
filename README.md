@@ -29,16 +29,18 @@ detail. This tool adds a mechanical check against that, with deliberate limits:
 - Any date must itself appear in the source text, or it's dropped from the brief.
 - **Figures in a claim's `text` are checked too.** Every number, version string (`29.0.0`) and
   date part in the plain-language `text` must appear in the source, or the whole claim is removed
-  and counted like a claim with a bad quote. Dates are compared by their digits only, so "Oct 1"
-  for "October 1st" passes and "Oct 2" does not.
+  and counted like a claim with a bad quote. A written date is compared by its month and day
+  together, so "Oct 1" for "October 1st" passes and "Nov 1" for "October 1st" does not; a day
+  with no month name next to it still falls back to a digits-only comparison.
 - `urgency.level` is a closed enum (`ACT_NOW` / `ACT_BEFORE_DEADLINE` / `MONITOR` /
   `NO_ACTION`), validated with zod, so the model can't invent a new severity label.
 
 **What this does not guarantee.** The check proves a quote exists in the source. It does not
 prove the plain-language `text` next to that quote is actually supported by it, so a claim can
-carry a real quote and still be a poor paraphrase. The figure check only compares digits: it
-cannot tell that a correct number is attached to the wrong thing, ignores spelled-out numbers
-("twenty-nine") and month names, and does not apply to claims marked unknown. The `urgency.level` choice, the per-audience
+carry a real quote and still be a poor paraphrase. The figure check only compares digits and
+explicit month-day pairs: it cannot tell that a correct number is attached to the wrong thing,
+still ignores spelled-out numbers ("twenty-nine") and a month name with no day next to it, and
+does not apply to claims marked unknown. The `urgency.level` choice, the per-audience
 YES/NO/UNCLEAR "affected" flags, and the `whatWeDontKnow` list are model judgments that are not
 checked against the source at all. Treat a brief as a faster way to read the advisory, not a
 substitute for reading it, and use the quotes to check anything you act on.

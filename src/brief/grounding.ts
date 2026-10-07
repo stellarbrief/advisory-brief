@@ -26,6 +26,79 @@ function figuresAppearInSource(text: string, normalizedSource: string): boolean 
   return extractFigures(text).every((f) => sourceFigures.has(f));
 }
 
+/** Month names (full and common short forms) mapped to their 1-based month number. `sept` is the
+ * usual abbreviation for September alongside `sep`, so both map to 9. */
+const MONTH_NUMBER: Record<string, number> = {
+  january: 1, february: 2, march: 3, april: 4, may: 5, june: 6,
+  july: 7, august: 8, september: 9, october: 10, november: 11, december: 12,
+  jan: 1, feb: 2, mar: 3, apr: 4, jun: 6, jul: 7, aug: 8,
+  sep: 9, sept: 9, oct: 10, nov: 11, dec: 12,
+};
+
+/** Alternation of every month name/short form, longest first so "september" is not read as "sep"
+ * (and "march" not as "mar"). Used with word boundaries so a month inside an unrelated word
+ * (e.g. "may" in "maybe") is never matched. */
+const MONTH_PATTERN =
+  'september|february|november|december|january|october|august|march|april|june|july|sept|feb|mar|apr|may|aug|oct|nov|dec|jan|jun|jul|sep';
+
+/** The day part of a written date: one or two digits plus an optional ordinal suffix
+ * ("1", "01", "1st", "21st"). Two digits are enough for any day; a four-digit year ("2026") is
+ * never matched because the word-boundary check after the digits fails against the remaining
+ * digits. */
+const DAY_PATTERN = '\\d{1,2}(?:st|nd|rd|th)?';
+
+/** Every month-day pair in `s`, canonicalized to `"<monthNumber>-<dayNumber>"` (for example
+ * "November 1" -> "11-1"). Recognizes a month name next to a day in either order ("October 1",
+ * "1 October"), full and short month names ("October", "Oct", "Sept"), and ordinal suffixes
+ * ("1st"). ISO dates ("2026-10-01") are also read as a pair so a written "October 1 2026" can
+ * ground against them. A month name with no day next to it is deliberately NOT a pair, so it is
+ * left to the digits-only figure check rather than rejected. */
+function extractMonthDayPairs(s: string): Set<string> {
+  const pairs = new Set<string>();
+  const lower = s.toLowerCase();
+  const monthDayRe = new RegExp(`\\b(${MONTH_PATTERN})\\.?\\s+(${DAY_PATTERN})\\b`, 'g');
+  const dayMonthRe = new RegExp(`\\b(${DAY_PATTERN})\\s+(${MONTH_PATTERN})\\b`, 'g');
+
+  for (const re of [monthDayRe, dayMonthRe]) {
+    const monthIsFirst = re === monthDayRe;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(lower)) !== null) {
+      const monthStr = monthIsFirst ? m[1] : m[2];
+      const dayStr = monthIsFirst ? m[2] : m[1];
+      const monthNum = MONTH_NUMBER[monthStr];
+      if (monthNum === undefined) continue;
+      const dayNum = Number(dayStr.replace(/st|nd|rd|th$/i, ''));
+      pairs.add(`${monthNum}-${dayNum}`);
+    }
+  }
+
+  const isoRe = /(\d{4})-(\d{2})-(\d{2})/g;
+  let m: RegExpExecArray | null;
+  while ((m = isoRe.exec(lower)) !== null) {
+    const monthNum = Number(m[2]);
+    const dayNum = Number(m[3]);
+    if (monthNum >= 1 && monthNum <= 12 && dayNum >= 1 && dayNum <= 31) {
+      pairs.add(`${monthNum}-${dayNum}`);
+    }
+  }
+
+  return pairs;
+}
+
+/** True when every written month-day pair in `text` also appears in the source, so a claim that
+ * states the right day but the wrong month ("November 1" for "October 1st") is rejected. Only
+ * explicit pairs are checked: a day with no month name next to it forms no pair and stays a
+ * digits-only comparison, so an unreadable date is never rejected here. */
+function monthDayPairsAppearInSource(text: string, normalizedSource: string): boolean {
+  const textPairs = extractMonthDayPairs(text);
+  if (textPairs.size === 0) return true;
+  const sourcePairs = extractMonthDayPairs(normalizedSource);
+  for (const pair of textPairs) {
+    if (!sourcePairs.has(pair)) return false;
+  }
+  return true;
+}
+
 /** The text of the placeholder that replaces a claim whose quote was not found in the source. */
 export const REMOVED_CLAIM_TEXT = 'A claim here could not be verified against the source advisory and was removed.';
 
@@ -77,7 +150,8 @@ function checkClaim(claim: Claim, normalizedSource: string): CheckResult {
   if (
     normalizedQuote.length > 0 &&
     normalizedSource.includes(normalizedQuote) &&
-    figuresAppearInSource(claim.text, normalizedSource)
+    figuresAppearInSource(claim.text, normalizedSource) &&
+    monthDayPairsAppearInSource(claim.text, normalizedSource)
   ) {
     return { claim, status: 'verified' };
   }
