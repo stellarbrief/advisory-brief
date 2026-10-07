@@ -23,19 +23,30 @@ detail. This tool adds a mechanical check against that, with deliberate limits:
   "verification" summary shown to the user, not hidden. In its place the brief shows "Removed:
   its quote could not be found in the source", which is deliberately different from "Unclear
   from the source" (a claim the model itself marked unknown).
+- **Every number, version and date in a claim's own wording must be a figure the source states.**
+  A brief saying `stellar-core 29.0.1` over a source that only names `29.0.0` is removed and
+  counted, exactly like a bad quote, and labelled "Removed: its wording stated a number, version
+  or date not in the source". Numbers are matched as whole figures, so a `29` cannot pass because
+  the source contains `1929`. Dates are matched by day and month, so a correctly-summarised
+  "Oct 1" grounds a source that says "October 1st" — the year and any time beside it are checked
+  as separate numbers.
 - A claim the model marks `unknown` cites no quote, so there is nothing to check. These are
   counted separately from verified claims (the brief shows, for example, "7/11 claims have a
-  quote found in the source. 4 marked unknown").
+  quote found in the source and no figure the source does not state. 4 marked unknown").
 - Any date must itself appear in the source text, or it's dropped from the brief.
 - `urgency.level` is a closed enum (`ACT_NOW` / `ACT_BEFORE_DEADLINE` / `MONITOR` /
   `NO_ACTION`), validated with zod, so the model can't invent a new severity label.
 
-**What this does not guarantee.** The check proves a quote exists in the source. It does not
-prove the plain-language `text` next to that quote is actually supported by it, so a claim can
-carry a real quote and still be a poor paraphrase. The `urgency.level` choice, the per-audience
-YES/NO/UNCLEAR "affected" flags, and the `whatWeDontKnow` list are model judgments that are not
-checked against the source at all. Treat a brief as a faster way to read the advisory, not a
-substitute for reading it, and use the quotes to check anything you act on.
+**What this does not guarantee.** The checks prove a quote exists in the source and that the
+claim's figures are figures the source states. They do not prove the rest of the plain-language
+`text` next to that quote is supported by it, so a claim can carry a real quote and correct
+numbers and still be a poor paraphrase (a wrong *word*, with no digits, is invisible to both
+checks). Digits that happen to sit inside a build hash or version string count as "stated" — a
+source containing `29.0.0-3589.4eb833373` will let a claim mention `3589` or `4`. The
+`urgency.level` choice, the per-audience YES/NO/UNCLEAR "affected" flags, and the `whatWeDontKnow`
+list are model judgments that are not checked against the source at all. Treat a brief as a faster
+way to read the advisory, not a substitute for reading it, and use the quotes to check anything
+you act on.
 
 See [`src/brief/grounding.ts`](src/brief/grounding.ts) for the actual enforcement.
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { toMarkdown, toSlackMessage } from './format';
-import { REMOVED_CLAIM_TEXT } from './grounding';
+import { REMOVED_CLAIM_TEXT, REMOVED_FIGURE_TEXT } from './grounding';
 import type { VerifiedBrief } from './schema';
 
 function sampleBrief(): VerifiedBrief {
@@ -45,6 +45,14 @@ describe('toMarkdown', () => {
     const section = md.split('## Urgency')[0];
     expect(section).toContain('removed: its quote could not be found in the source');
     expect(section).not.toContain('unclear from the source');
+  });
+
+  it('says which check removed a figure-rejected claim', () => {
+    const brief = sampleBrief();
+    brief.whatHappened = [{ text: REMOVED_FIGURE_TEXT, quote: null, unknown: true }];
+    const section = toMarkdown(brief).split('## Urgency')[0];
+    expect(section).toContain('removed: its wording stated a number, version or date not in the source');
+    expect(section).not.toContain('could not be found in the source');
   });
 
   it('shows a removed claim as removed in the Slack message too', () => {

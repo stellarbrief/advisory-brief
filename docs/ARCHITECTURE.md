@@ -10,10 +10,15 @@
    validation schema can never drift apart.
 4. The raw, schema-conformant response is parsed with `RawBriefSchema.parse` (shape-only
    validation — this does NOT mean every quote is real).
-5. `verifyBrief` (`src/brief/grounding.ts`) is the actual enforcement: every claim's `quote` is
-   checked as a real (whitespace/case-normalized) substring of the source text. A claim that
-   fails is replaced with a visible rejection placeholder, not silently dropped. Every date in
-   `urgency.deadlines` is checked the same way.
+5. `verifyBrief` (`src/brief/grounding.ts`) is the actual enforcement, in two passes per claim:
+   every claim's `quote` is checked as a real (whitespace/case-normalized) substring of the
+   source text, and then every number, version and date in the claim's own `text` is checked
+   against the set of such figures the source states. A claim that fails either is replaced with
+   a visible rejection placeholder naming which check failed, not silently dropped, and counted in
+   `rejectedClaims`. Figures are compared as whole, canonicalized tokens (`29` is not satisfied by
+   a source containing `1929`; `Oct 1` and `October 1st` are the same date), because a real run
+   produced a correct date the model had reformatted. Every date in `urgency.deadlines` is checked
+   the same way as the quotes.
 6. The resulting `VerifiedBrief` (schema-valid AND grounding-verified) is the only thing the
    UI ever renders.
 
@@ -25,9 +30,13 @@ literal source substring behind every claim makes the quote checkable with a che
 deterministic, testable substring match that doesn't depend on the model's honesty on any given
 call. That covers the quote only. The plain-language `text` written next to it is still the
 model's wording, and a real run has produced a claim ("security … improvements") that its quote
-did not support. See `src/brief/grounding.test.ts` for the tests exercising the quote check with
-a fabricated quote, and the evaluation-harness issue in `ISSUES_BACKLOG.md` for measuring the
-rest.
+did not support, and a claim that cited a real quote while naming a version the source never
+mentioned. Extracting the digit-bearing facts from `text` and requiring the source to state them
+closes that second gap mechanically: versions, dates and quantities are exactly the figures a
+wrong paraphrase tends to get wrong, and they are the ones a deterministic check can name.
+It is a floor, not an entailment check — see the limits recorded in the README's "What 'grounded'
+means here" section. See `src/brief/grounding.test.ts` for the tests exercising both passes, and
+the evaluation-harness issue in `ISSUES_BACKLOG.md` for measuring the rest.
 
 ## Why native structured outputs, not tool-use
 

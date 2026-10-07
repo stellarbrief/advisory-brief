@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { AUDIENCES, getAudience, withArticle } from '@/src/audiences/index';
 import { toMarkdown, toSlackMessage } from '@/src/brief/format';
-import { isRemovedClaim } from '@/src/brief/grounding';
+import { isRemovedClaim, isRemovedFigureClaim } from '@/src/brief/grounding';
 import type { Claim, VerifiedBrief } from '@/src/brief/schema';
 import type { Advisory } from '@/src/sources/types';
 
@@ -17,9 +17,13 @@ const URGENCY_COLORS: Record<string, string> = {
   NO_ACTION: 'bg-green-100 text-green-800 border-green-300',
 };
 
-/** Shows a claim, telling apart the two reasons it can have no text: the model marked it unknown
- * (nothing to check), or the verifier removed it because its quote was not in the source. */
+/** Shows a claim, telling apart the three reasons it can have no text: the model marked it
+ * unknown (nothing to check), or the verifier removed it because its quote was not in the source,
+ * or because its own wording stated a figure the source does not. */
 function ClaimText({ claim, unclear = 'Unclear from the source.' }: { claim: Claim; unclear?: string }) {
+  if (isRemovedFigureClaim(claim)) {
+    return <em className="text-red-700">Removed: its wording stated a number, version or date not in the source.</em>;
+  }
   if (isRemovedClaim(claim)) {
     return <em className="text-red-700">Removed: its quote could not be found in the source.</em>;
   }

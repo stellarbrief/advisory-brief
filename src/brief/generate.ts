@@ -53,6 +53,8 @@ CORE RULE, enforced by code after you respond, not just requested here: every fa
 
 Any date you cite in \`urgency.deadlines\` must also appear verbatim in the source text, or it will be silently dropped.
 
+The same code reads the numbers, versions and dates inside your \`text\` fields: a figure the source does not state anywhere removes that whole claim. Copy figures exactly as the source writes them rather than converting or rounding them, and if you cannot state one exactly, write the claim without it or mark it \`unknown: true\`.
+
 For \`affected\`, produce exactly one entry for each of these four audiences, in this order: wallet, anchor, fintech, exchange. Set \`affected\` to YES, NO, or UNCLEAR based only on what the source text supports.
 
 Source text:

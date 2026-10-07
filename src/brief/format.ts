@@ -1,5 +1,5 @@
 import { AUDIENCES } from '../audiences/index';
-import { isRemovedClaim } from './grounding';
+import { isRemovedClaim, isRemovedFigureClaim } from './grounding';
 import { renderSourcesLine } from './sources-line';
 import type { Claim, VerifiedBrief } from './schema';
 
@@ -36,7 +36,7 @@ export function toMarkdown(brief: VerifiedBrief): string {
   lines.push(
     '',
     `## Verification`,
-    `${brief.verification.verifiedClaims}/${brief.verification.totalClaims} claims have a quote found in the source.` +
+    `${brief.verification.verifiedClaims}/${brief.verification.totalClaims} claims have a quote found in the source and no figure the source does not state.` +
       (brief.verification.unknownClaims > 0
         ? ` ${brief.verification.unknownClaims} marked unknown (no quote to check).`
         : '') +
@@ -51,6 +51,7 @@ export function toMarkdown(brief: VerifiedBrief): string {
 }
 
 function claimLine(c: Claim): string {
+  if (isRemovedFigureClaim(c)) return '*(removed: its wording stated a number, version or date not in the source)*';
   if (isRemovedClaim(c)) return '*(removed: its quote could not be found in the source)*';
   return c.unknown ? `${c.text} *(unclear from the source)*` : c.text;
 }
