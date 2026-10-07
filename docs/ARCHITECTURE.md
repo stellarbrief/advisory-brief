@@ -87,6 +87,41 @@ would become "one counter per isolate, plus another in the handler". The route i
 spent, so that is where the counter lives. `GET /api/sources/stellar-core` is deliberately not
 limited: it costs GitHub's unauthenticated 60 requests/hour, which GitHub enforces for us.
 
+## Accessibility on the brief view
+
+Three problems were real, and each is now covered by something that runs in `npm test`:
+
+- **Urgency was colour.** The badge's four palettes live in `src/ui/urgency.ts` as plain hex
+  values, and the words beside them (`Act now`, `Act before a deadline`, `Monitor`, `No action
+  needed`) carry the meaning, so the level survives greyscale and colour-blindness. Because the
+  values are data, `src/ui/contrast.ts` can compute the WCAG relative-luminance ratio for each
+  foreground/background pair and `src/ui/contrast.test.ts` fails if any drops under 4.5:1 —
+  a contrast regression is a test failure, not a review comment. Had the colours stayed Tailwind
+  class names, nothing in the test run could have read them.
+- **The dark-mode canvas override was removed.** `app/globals.css` used to flip the page canvas to
+  `#0a0a0a` under `prefers-color-scheme: dark` while the rest of the page (borders, `bg-gray-100`
+  chips, grey body text) stayed light-only, which produced contrast ratios well below AA for
+  anyone whose OS asked for dark. `color-scheme: light` now tells the browser to keep form
+  controls light too. Real dark mode is a separate, larger piece of work.
+- **Focus and names.** Every field has a visible `<label htmlFor>` rather than placeholder-only
+  text, the audience buttons are a labelled `role="group"` with `aria-pressed`, errors are
+  `role="alert"` and busy/copy status is an always-mounted `role="status"` (a live region that
+  appears only when there is something to announce is not announced), the generated panel is
+  `aria-labelledby` its own heading, and that heading takes focus when a brief arrives so a
+  keyboard and screen-reader user is not left at the button they just pressed.
+
+`app/page.test.tsx` runs axe-core over the rendered page — the empty form, and a generated brief at
+each of the four urgency levels — and asserts zero violations, plus a test that drives the whole
+flow (load release, generate, switch audience, copy) with Tab and Enter only.
+
+**What the automated check cannot see.** jsdom has no layout engine, so axe's `color-contrast` rule
+is disabled in these tests: it needs computed styles and geometry, and reports "incomplete" rather
+than a verdict on every element. Contrast is covered by the explicit-value tests above instead, and
+everything else axe does (names, roles, structure, duplicate ids, label associations) is live. axe
+also only knows what it is given a DOM: the fixtures render each claim state once, so a violation
+that needs real text measurement, a hovered state, or a viewport narrower than the layout is not
+caught here.
+
 ## Extension points
 
 - **Sources** (`src/sources/`): implement `AdvisorySource` (`id`, `name`, `fetchLatest()`).

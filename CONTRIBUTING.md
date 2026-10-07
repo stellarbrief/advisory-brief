@@ -35,6 +35,22 @@ feature/fix PR, please — keep them separable.
 test that would otherwise need the Anthropic API or GitHub's API mocks it (see
 `src/brief/generate.test.ts` and `src/sources/github-releases.test.ts` for the pattern).
 
+The brief view is rendered in tests (`app/page.test.tsx`), which is what pulled in the UI-side
+devDependencies: `jsdom` (a DOM for React to render into — the rest of the suite stays on
+Node's environment, and that file opts in with a `// @vitest-environment jsdom` comment),
+`@testing-library/react` + `@testing-library/dom` + `@testing-library/user-event` (to drive the
+form, the audience buttons and the keyboard-only flow as a person would, rather than by calling
+handler props directly), and `axe-core` (the automated accessibility check — see
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#accessibility-on-the-brief-view)). They are all
+dev-only: nothing in `dependencies` changed, so a deployed app ships the same bundles it did
+before. `@testing-library/jest-dom` was deliberately not added; the assertions used are
+`toBeTruthy()`/`textContent`, and the matcher sugar did not justify another package.
+
+Copying is asserted by reading `navigator.clipboard.readText()`. Don't replace that with a stub of
+`writeText` attached in `beforeAll`: `userEvent.setup()` installs its own clipboard stub on
+`window.navigator` afterwards and shadows it, so the component writes to user-event's clipboard and
+the mock records nothing.
+
 ## How issues are rated
 
 Every issue in [`ISSUES_BACKLOG.md`](ISSUES_BACKLOG.md) is tagged **Trivial**, **Medium**, or

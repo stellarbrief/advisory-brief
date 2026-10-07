@@ -92,6 +92,9 @@ well as the rate limiter — see the limiter's trade-offs in
 - `src/brief/grounding.ts` — the actual verification logic: quotes as substrings of the source,
   and the numbers/versions/dates inside each claim's wording against the figures the source states.
 - `src/api/rate-limit.ts` — the fixed-window, per-address limiter `/api/brief` runs first.
+- `src/ui/urgency.ts` / `src/ui/contrast.ts` — the urgency badge's words and colours as values,
+  and the WCAG contrast arithmetic the tests check those colours against. Colours live in code
+  rather than only in class names so an automated test can measure them.
 - `src/brief/generate.ts` — provider-agnostic prompt construction and orchestration, using a
   JSON Schema generated directly from the zod schema (so the model's contract and the
   validation schema can never drift apart).
