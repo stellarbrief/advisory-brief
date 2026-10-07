@@ -37,9 +37,15 @@ const MONTH_NUMBER: Record<string, number> = {
 
 /** Alternation of every month name/short form, longest first so "september" is not read as "sep"
  * (and "march" not as "mar"). Used with word boundaries so a month inside an unrelated word
- * (e.g. "may" in "maybe") is never matched. */
+ * (e.g. "mar" in "market") is never matched. */
 const MONTH_PATTERN =
   'september|february|november|december|january|october|august|march|april|june|july|sept|feb|mar|apr|may|aug|oct|nov|dec|jan|jun|jul|sep';
+
+/** `MONTH_PATTERN` with "may" removed, for the day-first form only. A day-first "28 may" is
+ * ordinary wording ("protocol 28 may ..."), not a date, and "may" is the one month name that is
+ * also a common English word, so it is never read as a month in day-first position. */
+const MONTH_PATTERN_DAY_FIRST =
+  'september|february|november|december|january|october|august|march|april|june|july|sept|feb|mar|apr|aug|oct|nov|dec|jan|jun|jul|sep';
 
 /** The day part of a written date: one or two digits plus an optional ordinal suffix
  * ("1", "01", "1st", "21st"). Two digits are enough for any day; a four-digit year ("2026") is
@@ -51,29 +57,43 @@ const DAY_PATTERN = '\\d{1,2}(?:st|nd|rd|th)?';
  * "November 1" -> "11-1"). Recognizes a month name next to a day in either order ("October 1",
  * "1 October"), full and short month names ("October", "Oct", "Sept"), and ordinal suffixes
  * ("1st"). ISO dates ("2026-10-01") are also read as a pair so a written "October 1 2026" can
- * ground against them. A month name with no day next to it is deliberately NOT a pair, so it is
- * left to the digits-only figure check rather than rejected. */
+ * ground against them.
+ *
+ * "may" is handled specially because it is also an ordinary word: a day-first "28 may" is
+ * wording ("protocol 28 may ..."), not a date, so "may" is not read as a month in day-first
+ * position (a month-first "May 28" still is).
+ *
+ * A month name that runs on into a longer or hyphenated word ("marching", "march-in") is not a
+ * month: a plain `\b` after the name already stops a following letter, but also needs to reject
+ * a trailing hyphen, which is a non-word character. A month name with no day next to it is
+ * deliberately NOT a pair, so it is left to the digits-only figure check rather than rejected. */
 function extractMonthDayPairs(s: string): Set<string> {
   const pairs = new Set<string>();
   const lower = s.toLowerCase();
-  const monthDayRe = new RegExp(`\\b(${MONTH_PATTERN})\\.?\\s+(${DAY_PATTERN})\\b`, 'g');
-  const dayMonthRe = new RegExp(`\\b(${DAY_PATTERN})\\s+(${MONTH_PATTERN})\\b`, 'g');
 
-  for (const re of [monthDayRe, dayMonthRe]) {
-    const monthIsFirst = re === monthDayRe;
-    let m: RegExpExecArray | null;
-    while ((m = re.exec(lower)) !== null) {
-      const monthStr = monthIsFirst ? m[1] : m[2];
-      const dayStr = monthIsFirst ? m[2] : m[1];
-      const monthNum = MONTH_NUMBER[monthStr];
-      if (monthNum === undefined) continue;
-      const dayNum = Number(dayStr.replace(/st|nd|rd|th$/i, ''));
-      pairs.add(`${monthNum}-${dayNum}`);
-    }
+  const addPair = (monthStr: string, dayStr: string) => {
+    const monthNum = MONTH_NUMBER[monthStr];
+    if (monthNum === undefined) return;
+    const dayNum = Number(dayStr.replace(/st|nd|rd|th$/i, ''));
+    pairs.add(`${monthNum}-${dayNum}`);
+  };
+
+  // Month-first ("October 1", "Oct 1", "May 28").
+  const monthDayRe = new RegExp(`\\b(${MONTH_PATTERN})\\.?\\s+(${DAY_PATTERN})\\b`, 'g');
+  let m: RegExpExecArray | null;
+  while ((m = monthDayRe.exec(lower)) !== null) {
+    addPair(m[1], m[2]);
+  }
+
+  // Day-first ("1 October", "1 Oct"), with "may" excluded so "28 may" is not read as a date.
+  // `(?![\w-])` after the name rejects a hyphenated word ("march-in") that a plain word boundary
+  // would accept.
+  const dayMonthRe = new RegExp(`\\b(${DAY_PATTERN})\\s+(${MONTH_PATTERN_DAY_FIRST})(?![\\w-])`, 'g');
+  while ((m = dayMonthRe.exec(lower)) !== null) {
+    addPair(m[2], m[1]);
   }
 
   const isoRe = /(\d{4})-(\d{2})-(\d{2})/g;
-  let m: RegExpExecArray | null;
   while ((m = isoRe.exec(lower)) !== null) {
     const monthNum = Number(m[2]);
     const dayNum = Number(m[3]);

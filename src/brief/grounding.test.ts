@@ -167,6 +167,57 @@ describe('verifyBrief month-aware date check', () => {
     const v = verifyBrief(withTeam('This concerns the October release.'), SOURCE, null, 'test');
     expect(v.verification.rejectedClaims).toBe(0);
   });
+
+  it('keeps a claim where a number is followed by the word "may"', () => {
+    // "protocol 28 may ..." is ordinary advisory wording, not a day-first "28 May" date.
+    const source = 'Validators on protocol 28 should upgrade soon.';
+    const v = verifyBrief(
+      minimalRawBrief({
+        whatHappened: [claim('A release is scheduled.', null, true)],
+        urgency: { level: 'MONITOR', reason: claim('Nothing urgent.', null, true), deadlines: [] },
+        whatToTellYourTeam: [
+          claim('Operators on protocol 28 may want to upgrade soon.', 'on protocol 28 should upgrade soon'),
+        ],
+      }),
+      source,
+      null,
+      'test',
+    );
+    expect(v.verification.rejectedClaims).toBe(0);
+    expect(isRemovedClaim(v.whatToTellYourTeam[0])).toBe(false);
+  });
+
+  it('still grounds a capitalized month-first "May N" date', () => {
+    const source = 'The upgrade is scheduled for May 28.';
+    const v = verifyBrief(
+      minimalRawBrief({
+        whatHappened: [claim('A release is scheduled.', null, true)],
+        urgency: { level: 'MONITOR', reason: claim('Nothing urgent.', null, true), deadlines: [] },
+        whatToTellYourTeam: [claim('The upgrade is scheduled for May 28.', 'scheduled for May 28')],
+      }),
+      source,
+      null,
+      'test',
+    );
+    expect(v.verification.rejectedClaims).toBe(0);
+  });
+
+  it('does not read a hyphenated word that starts with a month name as a month', () => {
+    // "march-in" is one hyphenated word, not "March" next to a day, so it must not form a "3-10"
+    // month-day pair that the source lacks.
+    const source = 'The list contains 10 items.';
+    const v = verifyBrief(
+      minimalRawBrief({
+        whatHappened: [claim('A release is scheduled.', null, true)],
+        urgency: { level: 'MONITOR', reason: claim('Nothing urgent.', null, true), deadlines: [] },
+        whatToTellYourTeam: [claim('The list contains 10 march-in items.', 'list contains 10')],
+      }),
+      source,
+      null,
+      'test',
+    );
+    expect(v.verification.rejectedClaims).toBe(0);
+  });
 });
 
 describe('verifyBrief', () => {
