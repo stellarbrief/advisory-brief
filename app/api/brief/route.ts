@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { MAX_BRIEF_REQUEST_BYTES, MAX_SOURCE_TEXT_CHARS, readBodyWithinLimit } from '@/src/api/body-limit';
 import { clientKey, getBriefLimiter, rateLimitMessage } from '@/src/api/rate-limit';
 import { generateBrief } from '@/src/brief/generate';
 import { resolveGenerator } from '@/src/brief/providers/resolve';
 
 const RequestSchema = z.object({
-  sourceText: z.string().min(1).max(20000),
+  sourceText: z.string().min(1).max(MAX_SOURCE_TEXT_CHARS),
   sourceUrl: z.string().url().nullable(),
   sourceLabel: z.string().min(1),
 });
@@ -40,9 +41,17 @@ export async function POST(request: Request) {
     );
   }
 
+  const text = await readBodyWithinLimit(request, MAX_BRIEF_REQUEST_BYTES);
+  if (text === null) {
+    return NextResponse.json(
+      { error: `Request body is larger than ${MAX_BRIEF_REQUEST_BYTES} bytes.` },
+      { status: 413 }
+    );
+  }
+
   let body: unknown;
   try {
-    body = await request.json();
+    body = JSON.parse(text);
   } catch {
     return NextResponse.json({ error: 'Request body must be valid JSON.' }, { status: 400 });
   }
