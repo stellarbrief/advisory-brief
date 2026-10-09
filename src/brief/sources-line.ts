@@ -5,7 +5,9 @@ import type { VerifiedBrief } from './schema';
  * link wouldn't resolve for most readers anyway. */
 export function renderSourcesLine(brief: Pick<VerifiedBrief, 'sourceUrl' | 'sourceLabel'>): string {
   if (brief.sourceUrl) {
-    return `Source: [${brief.sourceLabel}](${brief.sourceUrl})`;
+    const escapedLabel = brief.sourceLabel.replace(/\\/g, '\\\\').replace(/\[/g, '\\[').replace(/\]/g, '\\]');
+    const escapedUrl = brief.sourceUrl.replace(/\(/g, '%28').replace(/\)/g, '%29').replace(/ /g, '%20');
+    return `Source: [${escapedLabel}](${escapedUrl})`;
   }
   return `Source: ${brief.sourceLabel}`;
 }

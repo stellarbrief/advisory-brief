@@ -84,6 +84,20 @@ Run it locally or on a private network. Public exposure means putting authentica
 well as the rate limiter — see the limiter's trade-offs in
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
+## Troubleshooting
+
+These are the error responses a self-hosted instance can return. The API key and optional rate
+limit settings are documented in [`.env.example`](.env.example).
+
+| Status | Endpoint and response message | Usual cause | What to do |
+| --- | --- | --- | --- |
+| 400 | `POST /api/brief`: `Request body must be valid JSON.` or the validation message in `parsed.error.message` | The request body is not JSON, or a required field is missing or invalid | Send JSON with a non-empty `sourceText`, a valid or null `sourceUrl`, and a non-empty `sourceLabel` |
+| 413 | `POST /api/brief`: `Request body is larger than 136384 bytes.` | The request body exceeds the byte cap | Paste a shorter source text |
+| 429 | `POST /api/brief`: `Rate limit reached: ${limit} brief requests per ${window} per address. Try again in ${retryAfterSeconds} seconds.` Headers: `Retry-After`, `X-RateLimit-Limit`, `X-RateLimit-Remaining` | The per-address request window is exhausted | Wait for the number of seconds in `Retry-After`, then retry |
+| 500 | `POST /api/brief`: `Neither ANTHROPIC_API_KEY nor GEMINI_API_KEY is configured on this server.` | Neither model provider key is configured | Set `ANTHROPIC_API_KEY` or `GEMINI_API_KEY` in `.env`, then restart the server |
+| 502 | `POST /api/brief`: `Brief generation failed: ${message}` | The configured brief provider failed | Check the underlying message, provider configuration, and provider availability |
+| 502 | `GET /api/sources/stellar-core`: the upstream error message; GitHub fetch failures use `GitHub Releases fetch failed for stellar/stellar-core: ${status} ${statusText}` | GitHub Releases could not be fetched, commonly because the unauthenticated GitHub API limit was reached | Set `GITHUB_TOKEN` in `.env` and retry |
+
 ## How it works
 
 - `src/brief/schema.ts` — the `Claim` primitive and the full brief schema (zod).

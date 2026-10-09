@@ -7,6 +7,14 @@ describe('renderSourcesLine', () => {
     expect(line).toBe('Source: [Example advisory](https://example.com/advisory)');
   });
 
+  it('escapes markdown delimiters in the label and URL', () => {
+    const line = renderSourcesLine({
+      sourceUrl: 'https://example.com/a_(b)',
+      sourceLabel: 'v1 [hotfix] (members) \\',
+    });
+    expect(line).toBe('Source: [v1 \\[hotfix\\] (members) \\\\](https://example.com/a_%28b%29)');
+  });
+
   it('renders the plain label with no link when sourceUrl is null', () => {
     const line = renderSourcesLine({ sourceUrl: null, sourceLabel: 'Members-only Discord announcement' });
     expect(line).toBe('Source: Members-only Discord announcement');
