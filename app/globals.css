@@ -1,8 +1,15 @@
 @import "tailwindcss";
 
+/* Light-only on purpose. `app/page.tsx` is styled with Tailwind's light palette throughout
+   (gray-50 panels, gray-600 body copy, light urgency badges), so the `prefers-color-scheme: dark`
+   override this file used to carry put dark-grey text on a near-black canvas -- a WCAG AA contrast
+   failure across the whole page. A dark theme means re-doing those tokens, not flipping the canvas;
+   until then `color-scheme: light` also stops the browser rendering dark form controls over a light
+   page. */
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  color-scheme: light;
 }
 
 @theme inline {
@@ -10,13 +17,6 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
