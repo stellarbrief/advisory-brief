@@ -3,10 +3,14 @@
 ## Setup
 
 ```bash
-npm install
+npm ci
 cp .env.example .env   # add your own ANTHROPIC_API_KEY (or GEMINI_API_KEY)
 npm run dev
 ```
+
+Use Node 22, which is what CI uses. `npm ci` installs exactly what `package-lock.json` says.
+`npm install` can rewrite that file, so do not commit changes to `package-lock.json` unless you
+changed a dependency on purpose.
 
 **Known quirk: don't mix operating systems on one `node_modules`.** Some dependencies ship
 platform-specific native binaries (Tailwind's `lightningcss`, Next's SWC compiler). If you ran
@@ -22,6 +26,26 @@ environment. On WSL, clone into the Linux filesystem (for example `~/advisory-br
 3. Make your change, with tests for anything in `src/`.
 4. Run the full local check before pushing: `npm run lint && npm run typecheck && npm run test && npm run build`.
 5. Open a PR against `main`. CI runs the same four checks; all must pass before merge.
+
+## Picking up an issue
+
+Comment on the issue to say you would like it, and wait for the maintainer to assign it to you
+before you start. A comment alone does not reserve it. If an assigned issue has had no activity
+for 7 days, the maintainer may ask whether you are still working on it, and may unassign it
+after 7 more days without a reply. A pull request for an issue that is assigned to someone else
+is looked at after theirs.
+
+## Your first pull request
+
+The first time you open a pull request, GitHub holds its CI run until a maintainer approves it,
+so the checks show nothing for a while. That is a GitHub setting, not broken CI. The maintainer
+approves the run when they review. Run the development loop locally in the meantime.
+
+## AI-assisted contributions
+
+AI-assisted contributions are welcome, as is this project's own use of AI assistance. You are
+responsible for what you submit: you have run it, you understand it, and every claim in the
+description is true. Pull requests are reviewed the same way whoever or whatever wrote them.
 
 ## Code style
 
@@ -63,6 +87,9 @@ Every issue in [`ISSUES_BACKLOG.md`](ISSUES_BACKLOG.md) is tagged **Trivial**, *
 - **High** — a complex feature, a refactor, or a new integration: shareable permalinks, rate
   limiting/abuse protection, an evaluation harness comparing briefs against hand-written gold
   briefs, a Slack/Discord webhook export.
+
+Every open issue carries `help wanted` and a `complexity:` label that matches its rating.
+Trivial issues also carry `good first issue`; Medium and High do not.
 
 If you're picking up a High-complexity issue for the first time, it's fine to open a draft PR
 early and ask questions — better than a large PR landing with no discussion along the way.

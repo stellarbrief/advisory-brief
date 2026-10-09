@@ -86,6 +86,140 @@ describe('verifyBrief figure check', () => {
   });
 });
 
+describe('verifyBrief month-aware date check', () => {
+  const withTeam = (text: string) =>
+    minimalRawBrief({ whatToTellYourTeam: [claim(text, 'fixes recently identified vulnerabilities')] });
+
+  it('rejects a claim whose day is right but month is wrong', () => {
+    // Source says "October 1st"; the claim's only digit ("1") is present, but the month is not.
+    const v = verifyBrief(withTeam('The deadline is November 1.'), SOURCE, null, 'test');
+    expect(v.verification.rejectedClaims).toBe(1);
+    expect(isRemovedClaim(v.whatToTellYourTeam[0])).toBe(true);
+  });
+
+  it('rejects a wrong month written as a short form', () => {
+    const v = verifyBrief(withTeam('The deadline is Nov 1.'), SOURCE, null, 'test');
+    expect(v.verification.rejectedClaims).toBe(1);
+  });
+
+  it('grounds a date written month-first with a short or full month name and an ordinal', () => {
+    for (const text of [
+      'Mainnet vote is October 1st at 1700 UTC.',
+      'Mainnet vote is Oct 1 at 1700 UTC.',
+      'Mainnet vote is Oct. 1 at 1700 UTC.',
+    ]) {
+      const v = verifyBrief(withTeam(text), SOURCE, null, 'test');
+      expect(v.verification.rejectedClaims).toBe(0);
+    }
+  });
+
+  it('grounds a date written day-first with and without an ordinal', () => {
+    for (const text of [
+      'Mainnet vote is 1 October at 1700 UTC.',
+      'Mainnet vote is 1st October at 1700 UTC.',
+      'Mainnet vote is 1 Oct at 1700 UTC.',
+    ]) {
+      const v = verifyBrief(withTeam(text), SOURCE, null, 'test');
+      expect(v.verification.rejectedClaims).toBe(0);
+    }
+  });
+
+  it('grounds a written date against an ISO date in the source', () => {
+    const isoSource = 'The release ships on 2026-10-01.';
+    const v = verifyBrief(
+      minimalRawBrief({
+        whatHappened: [claim('A release is scheduled.', null, true)],
+        urgency: { level: 'ACT_BEFORE_DEADLINE', reason: claim('A deadline exists.', null, true), deadlines: [] },
+        whatToTellYourTeam: [claim('The deadline is October 1 2026.', 'ships on 2026-10-01')],
+      }),
+      isoSource,
+      null,
+      'test',
+    );
+    expect(v.verification.rejectedClaims).toBe(0);
+  });
+
+  it('rejects a written date with the wrong month against an ISO date in the source', () => {
+    const isoSource = 'The release ships on 2026-10-01.';
+    const v = verifyBrief(
+      minimalRawBrief({
+        whatHappened: [claim('A release is scheduled.', null, true)],
+        urgency: { level: 'ACT_BEFORE_DEADLINE', reason: claim('A deadline exists.', null, true), deadlines: [] },
+        whatToTellYourTeam: [claim('The deadline is November 1 2026.', 'ships on 2026-10-01')],
+      }),
+      isoSource,
+      null,
+      'test',
+    );
+    expect(v.verification.rejectedClaims).toBe(1);
+  });
+
+  it('falls back to the digits-only check for a day with no month name', () => {
+    // A bare day ("the 1") has no month name next to it, so it stays a digits-only comparison:
+    // "1" is in the source, so the claim passes.
+    const v = verifyBrief(withTeam('The vote happens on the 1.'), SOURCE, null, 'test');
+    expect(v.verification.rejectedClaims).toBe(0);
+  });
+
+  it('does not reject a month name that has no day next to it', () => {
+    // "October" alone has no day adjacent, so there is no month-day pair to compare and the claim
+    // falls back to the digits-only check (here there are no digits at all).
+    const v = verifyBrief(withTeam('This concerns the October release.'), SOURCE, null, 'test');
+    expect(v.verification.rejectedClaims).toBe(0);
+  });
+
+  it('keeps a claim where a number is followed by the word "may"', () => {
+    // "protocol 28 may ..." is ordinary advisory wording, not a day-first "28 May" date.
+    const source = 'Validators on protocol 28 should upgrade soon.';
+    const v = verifyBrief(
+      minimalRawBrief({
+        whatHappened: [claim('A release is scheduled.', null, true)],
+        urgency: { level: 'MONITOR', reason: claim('Nothing urgent.', null, true), deadlines: [] },
+        whatToTellYourTeam: [
+          claim('Operators on protocol 28 may want to upgrade soon.', 'on protocol 28 should upgrade soon'),
+        ],
+      }),
+      source,
+      null,
+      'test',
+    );
+    expect(v.verification.rejectedClaims).toBe(0);
+    expect(isRemovedClaim(v.whatToTellYourTeam[0])).toBe(false);
+  });
+
+  it('still grounds a capitalized month-first "May N" date', () => {
+    const source = 'The upgrade is scheduled for May 28.';
+    const v = verifyBrief(
+      minimalRawBrief({
+        whatHappened: [claim('A release is scheduled.', null, true)],
+        urgency: { level: 'MONITOR', reason: claim('Nothing urgent.', null, true), deadlines: [] },
+        whatToTellYourTeam: [claim('The upgrade is scheduled for May 28.', 'scheduled for May 28')],
+      }),
+      source,
+      null,
+      'test',
+    );
+    expect(v.verification.rejectedClaims).toBe(0);
+  });
+
+  it('does not read a hyphenated word that starts with a month name as a month', () => {
+    // "march-in" is one hyphenated word, not "March" next to a day, so it must not form a "3-10"
+    // month-day pair that the source lacks.
+    const source = 'The list contains 10 items.';
+    const v = verifyBrief(
+      minimalRawBrief({
+        whatHappened: [claim('A release is scheduled.', null, true)],
+        urgency: { level: 'MONITOR', reason: claim('Nothing urgent.', null, true), deadlines: [] },
+        whatToTellYourTeam: [claim('The list contains 10 march-in items.', 'list contains 10')],
+      }),
+      source,
+      null,
+      'test',
+    );
+    expect(v.verification.rejectedClaims).toBe(0);
+  });
+});
+
 describe('verifyBrief', () => {
   it('keeps a claim whose quote is a real substring of the source', () => {
     const result = verifyBrief(minimalRawBrief(), SOURCE, null, 'test');

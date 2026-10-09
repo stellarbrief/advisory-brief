@@ -29,16 +29,18 @@ detail. This tool adds a mechanical check against that, with deliberate limits:
 - Any date must itself appear in the source text, or it's dropped from the brief.
 - **Figures in a claim's `text` are checked too.** Every number, version string (`29.0.0`) and
   date part in the plain-language `text` must appear in the source, or the whole claim is removed
-  and counted like a claim with a bad quote. Dates are compared by their digits only, so "Oct 1"
-  for "October 1st" passes and "Oct 2" does not.
+  and counted like a claim with a bad quote. A written date is compared by its month and day
+  together, so "Oct 1" for "October 1st" passes and "Nov 1" for "October 1st" does not; a day
+  with no month name next to it still falls back to a digits-only comparison.
 - `urgency.level` is a closed enum (`ACT_NOW` / `ACT_BEFORE_DEADLINE` / `MONITOR` /
   `NO_ACTION`), validated with zod, so the model can't invent a new severity label.
 
 **What this does not guarantee.** The check proves a quote exists in the source. It does not
 prove the plain-language `text` next to that quote is actually supported by it, so a claim can
-carry a real quote and still be a poor paraphrase. The figure check only compares digits: it
-cannot tell that a correct number is attached to the wrong thing, ignores spelled-out numbers
-("twenty-nine") and month names, and does not apply to claims marked unknown. The `urgency.level` choice, the per-audience
+carry a real quote and still be a poor paraphrase. The figure check only compares digits and
+explicit month-day pairs: it cannot tell that a correct number is attached to the wrong thing,
+still ignores spelled-out numbers ("twenty-nine") and a month name with no day next to it, and
+does not apply to claims marked unknown. The `urgency.level` choice, the per-audience
 YES/NO/UNCLEAR "affected" flags, and the `whatWeDontKnow` list are model judgments that are not
 checked against the source at all. Treat a brief as a faster way to read the advisory, not a
 substitute for reading it, and use the quotes to check anything you act on.
@@ -63,10 +65,24 @@ text instead.
 
 ## Deployment note
 
-`/api/brief` has no authentication and no rate limiting, and every request spends the model API
-key set in `.env`. This project is meant to run locally or on a private network. Do not expose
-an instance publicly with a real key until rate limiting is added; it is tracked as an issue
-in [`ISSUES_BACKLOG.md`](ISSUES_BACKLOG.md).
+`/api/brief` spends the model API key set in `.env` on every request, so it is rate limited: by
+default 10 requests per minute per client address, then HTTP 429 with a `Retry-After` header and a
+readable message. Tune it with `BRIEF_RATE_LIMIT_REQUESTS` and `BRIEF_RATE_LIMIT_WINDOW_SECONDS`.
+
+**What is protected:** `POST /api/brief`, per client address, in the process that serves it.
+**What is not:** there is still no authentication, no per-user or per-key budget, and no limit on
+`GET /api/sources/stellar-core` (GitHub's own unauthenticated limit applies there). The counter
+lives in memory, so a restart clears it and each instance or serverless isolate keeps its own
+budget — two replicas allow 20 requests a minute. The address comes from `X-Forwarded-For`, which
+is only trustworthy if the proxy in front of the app *sets* that header itself, to the peer address
+it actually saw — for Nginx, `proxy_set_header X-Forwarded-For $remote_addr;` (not `$http_x_forwarded_for`,
+which passes a client-supplied value through). Vercel and Railway set it for you. Behind a proxy
+that forwards a client-supplied value, a caller can rotate addresses and get a fresh window; with
+no proxy header at all, every client shares one bucket.
+
+Run it locally or on a private network. Public exposure means putting authentication in front, as
+well as the rate limiter — see the limiter's trade-offs in
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## How it works
 
@@ -75,6 +91,7 @@ in [`ISSUES_BACKLOG.md`](ISSUES_BACKLOG.md).
 - `src/ui/urgency.ts` / `src/ui/contrast.ts` — the urgency badge's words and colours as values,
   and the WCAG contrast arithmetic the tests check those colours against. Colours live in code
   rather than only in class names so an automated test can measure them.
+- `src/api/rate-limit.ts` — the fixed-window, per-address limiter `/api/brief` runs first.
 - `src/brief/generate.ts` — provider-agnostic prompt construction and orchestration, using a
   JSON Schema generated directly from the zod schema (so the model's contract and the
   validation schema can never drift apart).
