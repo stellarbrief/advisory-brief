@@ -48,3 +48,57 @@ describe('POST /api/brief sourceText', () => {
     expect(generateBrief).toHaveBeenCalledWith({}, expect.objectContaining({ sourceText }));
   });
 });
+
+const advisory = { sourceText: 'Some advisory text.' };
+
+describe('POST /api/brief sourceUrl', () => {
+  it.each(['javascript:alert(1)', 'data:text/html,hi', 'file:///etc/passwd', 'ftp://example.com/x'])(
+    'answers 400 to %s, and never asks for a brief',
+    async (sourceUrl) => {
+      const res = await POST(post({ ...advisory, sourceUrl, sourceLabel: 'test' }));
+      expect(res.status).toBe(400);
+      expect(generateBrief).not.toHaveBeenCalled();
+    }
+  );
+
+  it('tells the client what is accepted', async () => {
+    const res = await POST(post({ ...advisory, sourceUrl: 'javascript:alert(1)', sourceLabel: 'test' }));
+    expect((await res.json()).error).toContain('use an http or https address');
+  });
+
+  it.each([
+    'https://github.com/stellar/stellar-core/releases/tag/v29.0.0',
+    'http://example.com/x',
+    null,
+  ])('accepts %s and passes it on unchanged', async (sourceUrl) => {
+    const res = await POST(post({ ...advisory, sourceUrl, sourceLabel: 'test' }));
+    expect(res.status).toBe(200);
+    expect(generateBrief).toHaveBeenCalledWith({}, expect.objectContaining({ sourceUrl }));
+  });
+
+  it('refuses something that is not an address at all', async () => {
+    const res = await POST(post({ ...advisory, sourceUrl: 'not a url', sourceLabel: 'test' }));
+    expect(res.status).toBe(400);
+  });
+});
+
+describe('POST /api/brief sourceLabel', () => {
+  it('accepts a label of exactly 200 characters', async () => {
+    const sourceLabel = 'a'.repeat(200);
+    const res = await POST(post({ ...advisory, sourceUrl: null, sourceLabel }));
+    expect(res.status).toBe(200);
+    expect(generateBrief).toHaveBeenCalledWith({}, expect.objectContaining({ sourceLabel }));
+  });
+
+  it('answers 400 to a label of 201 characters, and says what the limit is', async () => {
+    const res = await POST(post({ ...advisory, sourceUrl: null, sourceLabel: 'a'.repeat(201) }));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toContain('200 characters or fewer');
+    expect(generateBrief).not.toHaveBeenCalled();
+  });
+
+  it('still refuses an empty label', async () => {
+    const res = await POST(post({ ...advisory, sourceUrl: null, sourceLabel: '' }));
+    expect(res.status).toBe(400);
+  });
+});

@@ -7,7 +7,14 @@ import { generateBrief } from '@/src/brief/generate';
 import { resolveGenerator } from '@/src/brief/providers/resolve';
 
 /** What a client is told when the source text has nothing in it. */
-const SOURCE_TEXT_REQUIRED_MESSAGE ='sourceText: paste the advisory text first.';
+const SOURCE_TEXT_REQUIRED_MESSAGE = 'sourceText: paste the advisory text first.';
+
+/** The longest source label accepted, in characters. The label is the text of a link on the page
+ * and of the "Source:" line in the Markdown and Slack copies, so it is one line of text. Without
+ * a limit it could be as large as the whole request. */
+const MAX_SOURCE_LABEL_CHARS = 200;
+const SOURCE_LABEL_TOO_LONG_MESSAGE = `sourceLabel: use ${MAX_SOURCE_LABEL_CHARS} characters or fewer.`;
+const SOURCE_URL_NOT_WEB_MESSAGE = 'sourceUrl: use an http or https address, or leave it out.';
 
 const RequestSchema = z.object({
   // Text that is empty after trimming would pass `min(1)` as "   " and then be sent to the model
@@ -19,8 +26,12 @@ const RequestSchema = z.object({
     .string()
     .max(MAX_SOURCE_TEXT_CHARS)
     .refine((text) => text.trim().length > 0, { message: SOURCE_TEXT_REQUIRED_MESSAGE }),
-  sourceUrl: z.string().url().nullable(),
-  sourceLabel: z.string().min(1),
+  // Only web addresses. The URL becomes the target of a link on the page and in the Markdown and
+  // Slack copies, and `z.string().url()` on its own accepts `javascript:`, `data:` and `file:`.
+  // React 19 refuses to run a `javascript:` link, so this is defence in depth and tidier output,
+  // not a fix for a known exploit.
+  sourceUrl: z.url({ protocol: /^https?$/, error: SOURCE_URL_NOT_WEB_MESSAGE }).nullable(),
+  sourceLabel: z.string().min(1).max(MAX_SOURCE_LABEL_CHARS, SOURCE_LABEL_TOO_LONG_MESSAGE),
 });
 
 // Not cached and not statically prerenderable -- a real, per-request model call, matching
