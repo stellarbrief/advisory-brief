@@ -113,8 +113,17 @@ than papered over:
 handler and could reject cheaper, but it is a separate execution context whose module state is not
 shared with the handler in some runtimes — the exact "one counter per process" assumption above
 would become "one counter per isolate, plus another in the handler". The route is where the key is
-spent, so that is where the counter lives. `GET /api/sources/stellar-core` is deliberately not
-limited: it costs GitHub's unauthenticated 60 requests/hour, which GitHub enforces for us.
+spent, so that is where the counter lives.
+
+`GET /api/sources/stellar-core` is deliberately not rate limited per client, because it spends no
+key. What it spends is GitHub's unauthenticated allowance of 60 requests an hour, and GitHub
+applies that to the server's address, not to each visitor: one caller reloading in a loop could
+use it up for everyone. So the route keeps the latest answer for five minutes
+(`src/sources/cached.ts`), callers that arrive during a request share it, and that holds the
+route to twelve requests an hour to GitHub per process however many people call it. Each request
+to GitHub is given ten seconds (`GITHUB_FETCH_TIMEOUT_MS`), so a GitHub that accepts the
+connection and never answers cannot hold a request open. A failure is not kept, so the next
+caller asks again. Like the counter, the saved answer lives in this process's memory.
 
 ## Extension points
 

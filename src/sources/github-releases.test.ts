@@ -58,6 +58,31 @@ describe('github-releases source (mocked fetch, no network)', () => {
     expect(advisories).toHaveLength(1);
   });
 
+  it('gives every request a timeout signal', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => [] });
+    vi.stubGlobal('fetch', fetchMock);
+    await createGitHubReleasesSource('stellar', 'stellar-core').fetchLatest();
+
+    const init = fetchMock.mock.calls[0][1] as RequestInit;
+    expect(init.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it('gives up on a GitHub that never answers, and says which request and how long', async () => {
+    // A fetch that only ever finishes by being aborted, which is what a server that accepts the
+    // connection and then says nothing looks like.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        (_url: string, init: RequestInit) =>
+          new Promise((_resolve, reject) => {
+            init.signal?.addEventListener('abort', () => reject(init.signal?.reason));
+          })
+      )
+    );
+    const source = createGitHubReleasesSource('stellar', 'stellar-core', { timeoutMs: 20 });
+    await expect(source.fetchLatest()).rejects.toThrow(/timed out after 20 ms for stellar\/stellar-core/);
+  });
+
   it('throws a clear error on a non-ok response instead of silently returning nothing', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 502, statusText: 'Bad Gateway' }));
     const source = createGitHubReleasesSource('stellar', 'stellar-core');

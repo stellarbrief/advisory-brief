@@ -70,10 +70,13 @@ default 10 requests per minute per client address, then HTTP 429 with a `Retry-A
 readable message. Tune it with `BRIEF_RATE_LIMIT_REQUESTS` and `BRIEF_RATE_LIMIT_WINDOW_SECONDS`.
 
 **What is protected:** `POST /api/brief`, per client address, in the process that serves it.
-**What is not:** there is still no authentication, no per-user or per-key budget, and no limit on
-`GET /api/sources/stellar-core` (GitHub's own unauthenticated limit applies there). The counter
-lives in memory, so a restart clears it and each instance or serverless isolate keeps its own
-budget — two replicas allow 20 requests a minute. The address comes from `X-Forwarded-For`, which
+**What is not:** there is still no authentication, no per-user or per-key budget, and no
+per-client limit on `GET /api/sources/stellar-core`. That route keeps GitHub's answer for five
+minutes and gives each request to GitHub ten seconds, so however many people call it the server
+asks GitHub at most twelve times an hour, inside GitHub's unauthenticated allowance of 60 an hour
+for the server's address. The counter and that saved answer live in memory, so a restart clears
+them and each instance or serverless isolate keeps its own — two replicas allow 20 requests a
+minute. The address comes from `X-Forwarded-For`, which
 is only trustworthy if the proxy in front of the app *sets* that header itself, to the peer address
 it actually saw — for Nginx, `proxy_set_header X-Forwarded-For $remote_addr;` (not `$http_x_forwarded_for`,
 which passes a client-supplied value through). Vercel and Railway set it for you. Behind a proxy
