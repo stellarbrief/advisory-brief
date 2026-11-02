@@ -106,20 +106,28 @@ export function getBriefLimiter(): RateLimiter {
   return briefLimiter;
 }
 
+/** "minute" for one, "5 minutes" for five: the unit alone when there is one of it, so that the
+ * phrase reads after "per" ("per minute") as well as on its own ("5 minutes"). */
+function perUnit(count: number, unit: string): string {
+  return count === 1 ? unit : `${count} ${unit}s`;
+}
+
 /** A window in words, for a message a person reads while being blocked: "minute" for 60s,
- * "5 minutes" for 300s, "45 seconds" for 45s. Naming the configured window rather than assuming
- * one minute is the difference between a message someone can act on and one they have to guess at. */
+ * "5 minutes" for 300s, "2 hours" for 7200s, "45 seconds" for 45s. The largest unit that divides
+ * the window evenly is used, so 90 minutes is "90 minutes" and not a fraction of an hour. Naming
+ * the configured window rather than assuming one minute is the difference between a message
+ * someone can act on and one they have to guess at. */
 export function describeWindow(seconds: number): string {
-  if (seconds === 1) return 'second';
-  if (seconds === 60) return 'minute';
-  if (seconds === 3600) return 'hour';
-  if (seconds === 86400) return 'day';
-  return seconds % 60 === 0 ? `${seconds / 60} minutes` : `${seconds} seconds`;
+  if (seconds % 86400 === 0) return perUnit(seconds / 86400, 'day');
+  if (seconds % 3600 === 0) return perUnit(seconds / 3600, 'hour');
+  if (seconds % 60 === 0) return perUnit(seconds / 60, 'minute');
+  return perUnit(seconds, 'second');
 }
 
 export function rateLimitMessage(decision: RateLimitDecision): string {
+  const wait = decision.retryAfterSeconds === 1 ? '1 second' : `${decision.retryAfterSeconds} seconds`;
   return (
     `Rate limit reached: ${decision.limit} brief requests per ${describeWindow(decision.windowSeconds)} ` +
-    `per address. Try again in ${decision.retryAfterSeconds} seconds.`
+    `per address. Try again in ${wait}.`
   );
 }

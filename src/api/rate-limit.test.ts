@@ -112,6 +112,30 @@ describe('the 429 message', () => {
     expect(describeWindow(3600)).toBe('hour');
   });
 
+  it('reads whole hours and days as hours and days, not as hundreds of minutes', () => {
+    expect(describeWindow(7200)).toBe('2 hours');
+    expect(describeWindow(10800)).toBe('3 hours');
+    expect(describeWindow(86400)).toBe('day');
+    expect(describeWindow(172800)).toBe('2 days');
+  });
+
+  it('uses the largest unit that divides the window evenly, and no fractions', () => {
+    expect(describeWindow(120)).toBe('2 minutes');
+    expect(describeWindow(5400)).toBe('90 minutes');
+    expect(describeWindow(90)).toBe('90 seconds');
+    expect(describeWindow(3601)).toBe('3601 seconds');
+  });
+
+  it('says "1 second", not "1 seconds", when the wait is one second', () => {
+    const base = { allowed: false, limit: 10, remaining: 0, windowSeconds: 60 };
+    expect(rateLimitMessage({ ...base, retryAfterSeconds: 1 })).toBe(
+      'Rate limit reached: 10 brief requests per minute per address. Try again in 1 second.'
+    );
+    expect(rateLimitMessage({ ...base, retryAfterSeconds: 2 })).toBe(
+      'Rate limit reached: 10 brief requests per minute per address. Try again in 2 seconds.'
+    );
+  });
+
   it('says per-minute only for a minute-long window', () => {
     const base = { allowed: false, limit: 10, remaining: 0, retryAfterSeconds: 37 };
     expect(rateLimitMessage({ ...base, windowSeconds: 60 })).toBe(
