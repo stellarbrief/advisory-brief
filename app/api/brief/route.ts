@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { MAX_BRIEF_REQUEST_BYTES, MAX_SOURCE_TEXT_CHARS, readBodyWithinLimit } from '@/src/api/body-limit';
+import { describeGenerationFailure } from '@/src/api/generation-error';
 import { clientKey, getBriefLimiter, rateLimitMessage } from '@/src/api/rate-limit';
 import { generateBrief } from '@/src/brief/generate';
 import { resolveGenerator } from '@/src/brief/providers/resolve';
@@ -65,7 +66,9 @@ export async function POST(request: Request) {
     const brief = await generateBrief(generator, parsed.data);
     return NextResponse.json({ brief });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: `Brief generation failed: ${message}` }, { status: 502 });
+    // The real error goes to the server log, where whoever runs this server can read it. The
+    // visitor gets a fixed sentence for the kind of failure, never the provider's own text.
+    console.error('[api/brief] brief generation failed:', err);
+    return NextResponse.json({ error: describeGenerationFailure(err) }, { status: 502 });
   }
 }

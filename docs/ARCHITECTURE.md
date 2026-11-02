@@ -125,6 +125,16 @@ to GitHub is given ten seconds (`GITHUB_FETCH_TIMEOUT_MS`), so a GitHub that acc
 connection and never answers cannot hold a request open. A failure is not kept, so the next
 caller asks again. Like the counter, the saved answer lives in this process's memory.
 
+## What `/api/brief` tells a visitor when it fails
+
+A failure while producing a brief is answered with 502 and one of four fixed sentences
+(`src/api/generation-error.ts`): the provider is busy or limiting the server (it answered 429,
+503 or 529), the provider refused the server's API key (401 or 403), the model's answer was not
+valid JSON or had the wrong shape, or a generic one for anything else. The error that actually
+happened is written to the server log and never sent to the visitor, because a provider's error
+text can carry request ids, account or quota details and parts of what the provider sent back.
+Only the numeric `status` on the error is read; its message is not inspected.
+
 ## Extension points
 
 - **Sources** (`src/sources/`): implement `AdvisorySource` (`id`, `name`, `fetchLatest()`).
