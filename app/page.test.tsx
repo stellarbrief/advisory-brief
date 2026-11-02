@@ -8,6 +8,13 @@ import { URGENCY_PRESENTATIONS } from '@/src/ui/urgency';
 import { REMOVED_CLAIM_TEXT } from '@/src/brief/grounding';
 import type { Claim, VerifiedBrief } from '@/src/brief/schema';
 
+// Each axe-core run walks the whole rendered page in jsdom. On an idle machine the slowest test
+// here takes about 2.5 seconds; on a busy one (a CI runner sharing its CPU, a laptop mid-build)
+// it has taken over 5.5, which failed the default 5-second limit although nothing was wrong. A
+// limit that only a loaded machine can trip tells a contributor nothing, so this file allows
+// 30 seconds. It is set for this file only: a test that really hangs elsewhere still fails fast.
+vi.setConfig({ testTimeout: 30_000 });
+
 type Keyboard = Awaited<ReturnType<typeof userEvent.setup>>;
 
 const SOURCE =
