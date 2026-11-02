@@ -6,8 +6,19 @@ import { clientKey, getBriefLimiter, rateLimitMessage } from '@/src/api/rate-lim
 import { generateBrief } from '@/src/brief/generate';
 import { resolveGenerator } from '@/src/brief/providers/resolve';
 
+/** What a client is told when the source text has nothing in it. */
+const SOURCE_TEXT_REQUIRED_MESSAGE ='sourceText: paste the advisory text first.';
+
 const RequestSchema = z.object({
-  sourceText: z.string().min(1).max(MAX_SOURCE_TEXT_CHARS),
+  // Text that is empty after trimming would pass `min(1)` as "   " and then be sent to the model
+  // provider, spending the key's quota on a brief about nothing. The page already disables the
+  // button for it; this is the same guard for everyone who calls the API directly. The text is
+  // kept exactly as sent: grounding normalizes whitespace in the source and in each quote before
+  // it compares them, so trimming here would change nothing it relies on.
+  sourceText: z
+    .string()
+    .max(MAX_SOURCE_TEXT_CHARS)
+    .refine((text) => text.trim().length > 0, { message: SOURCE_TEXT_REQUIRED_MESSAGE }),
   sourceUrl: z.string().url().nullable(),
   sourceLabel: z.string().min(1),
 });
