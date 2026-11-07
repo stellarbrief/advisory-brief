@@ -1,0 +1,8 @@
+# Changes to these paths need a review from the code owner (enforced by the branch ruleset).
+# The workflows and security policy control what CI trusts; the grounding check and the providers decide what a brief
+# may claim; the sources define what is read as an advisory; the API routes are the public surface.
+/.github/ @larryjay007
+/SECURITY.md @larryjay007
+/src/brief/ @larryjay007
+/src/sources/ @larryjay007
+/app/api/ @larryjay007
