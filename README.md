@@ -1,9 +1,18 @@
+<div align="center">
+
+<img src="docs/brand/logo.svg" alt="StellarBrief logo" width="120">
+
 # Advisory Brief
+
+Turns Stellar security advisories into plain-language briefs for non-engineers.
+Each claim cites a quote that code checks against the source, or is marked unknown.
 
 [![CI](https://github.com/stellarbrief/advisory-brief/actions/workflows/ci.yml/badge.svg)](https://github.com/stellarbrief/advisory-brief/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/stellarbrief/advisory-brief)](https://github.com/stellarbrief/advisory-brief/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-496c8e)](LICENSE)
 [![Status: early development](https://img.shields.io/badge/status-early%20development-d9822b)](SECURITY.md)
+
+</div>
 
 Turn a Stellar security advisory or release announcement into a plain-language brief for
 **non-engineers** — business owners, compliance leads, and product managers at wallets,
