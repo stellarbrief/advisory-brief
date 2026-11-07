@@ -7,6 +7,11 @@ everyone downstream of a node operator gets protocol jargon and has to translate
 time pressure. This tool does that translation, and makes every factual claim in the brief
 traceable to a quote in the source advisory.
 
+[![CI](https://github.com/stellarbrief/advisory-brief/actions/workflows/ci.yml/badge.svg)](https://github.com/stellarbrief/advisory-brief/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/stellarbrief/advisory-brief)](https://github.com/stellarbrief/advisory-brief/releases)
+[![License: MIT](https://img.shields.io/badge/license-MIT-496c8e)](LICENSE)
+[![Status: early development](https://img.shields.io/badge/status-early%20development-d9822b)](SECURITY.md)
+
 **See a real run without an API key:** the
 [Advisory Brief playground](https://stellarbrief.github.io/playground/advisory/) shows one recorded brief,
 claim by claim, with each quote re-checked against the source.
