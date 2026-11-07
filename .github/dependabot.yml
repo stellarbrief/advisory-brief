@@ -6,6 +6,12 @@ updates:
       interval: weekly
     open-pull-requests-limit: 3
     groups:
+      # react-dom needs the react release of the same version as a peer, and both are pinned exactly, so a
+      # react-dom bump alone cannot be installed. Update them together.
+      react:
+        patterns:
+          - react
+          - react-dom
       # Next.js and eslint-config-next are pinned to the same version; update them together.
       next:
         patterns:
